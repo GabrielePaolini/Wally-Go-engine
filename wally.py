@@ -70,8 +70,6 @@ class Board:
         self.board = self.create()
 
         # Count routine variables
-        self.liberties = []
-        self.blocks = []
         self.best_liberties = board_size * board_size
         self.best_move = None
 
@@ -91,11 +89,16 @@ class Board:
         # File markers
         files = [chr(ascii_code) for ascii_code in range(97, 97 + self.BOARD_SIZE)]
 
+        print('\n' + '    ' + ' '.join(files), end='') # first row of column coords
         for row in range(self.BOARD_RANGE):
             for col in range(self.BOARD_RANGE):
-                if col == 0 and row > 0 and row < self.BOARD_RANGE - 1:
-                    cur_row = self.BOARD_RANGE - 1 - row
-                    print(cur_row, end='' if cur_row>=10 else ' ')
+                if row > 0 and row < self.BOARD_RANGE - 1:
+                    if col == 0:
+                        cur_row = self.BOARD_RANGE - 1 - row
+                        print('' + str(cur_row) if cur_row>=10 else ' ' + str(cur_row), end='')
+                    elif col == self.BOARD_RANGE - 1:
+                        cur_row = self.BOARD_RANGE - 1 - row
+                        print(' ' + str(cur_row), end='')
 
                 square = row * self.BOARD_RANGE + col
                 stone = self.board[square]
@@ -105,56 +108,57 @@ class Board:
     
     def reset(self):
         self.board = self.create() 
-        self.liberties = []
-        self.blocks = []
+        self.best_liberties = self.BOARD_SIZE * self.BOARD_SIZE
+        self.best_move = None
 
     def place_stone(self, square, color):
-        #if not(piece == self.EMPTY or piece == self.LIBERTY):
-        if (self.board[square] & 7):
-            print("Square already occupied.")
-            return 0
-        else:
-            self.board[square] = color
-            return 1
+        self.board[square] = color
         
     def remove_stone(self, square):
         self.board[square] &= 8
         
     # count liberties, save stone group coords (COUNT sub on byte magazine 1981)
     def count(self, square, color):
+        group = set()
+        liberties = set()
         piece = self.board[square]
-        if piece == self.OFFBOARD:
-            return
-        # If there's a stone at square (i.e. square is not empty (0) 
-        # AND has the same color as input AND is not marked)
-        if piece and piece & color and (piece & self.MARKER) == 0:
-            # save stone's coordinate
-            self.blocks.append(square)
-            # mark the stone
-            self.board[square] |= self.MARKER
-            # look for neighbours recursively
-            self.count(square - self.BOARD_RANGE, color)    # N
-            self.count(square + 1, color)                   # E
-            self.count(square + self.BOARD_RANGE, color)    # S
-            self.count(square - 1, color)                   # W
-        # if the square is empty
-        elif piece == self.EMPTY:
-            # mark liberty
-            self.board[square] |= self.LIBERTY
-            # save liberties
-            self.liberties.append(square)
+        if piece != self.OFFBOARD:
+            # If there's a stone at square (i.e. square is not empty (0) 
+            # AND has the same color as input AND is not marked)
+            if (piece & 3) and (piece & color) and (piece & self.MARKER) == 0:
+                # save stone's coordinate
+                #self.blocks.append(square)
+                group.add(square)
+                # mark the stone
+                self.board[square] |= self.MARKER
+                # look for neighbours recursively
+                for delta in [-self.BOARD_RANGE, 1, self.BOARD_RANGE, -1]:
+                    next_group, next_liberties = self.count(square + delta, color)
+                    group = group.union(next_group)
+                    liberties = liberties.union(next_liberties)
+            # if the square is empty
+            elif piece == self.EMPTY:
+                # mark liberty
+                self.board[square] |= self.LIBERTY
+                # save liberties
+                #self.liberties.append(square)
+                liberties.add(square)
+        return group, liberties
 
     def restore(self):
-        self.liberties = []
-        self.blocks = []
-        # unmark stones
+        # For every square in the board
         for square in range(self.BOARD_RANGE * self.BOARD_RANGE):
             # restore piece if the square is on board
-            if self.board[square] != self.OFFBOARD: 
+            if self.board[square] != self.OFFBOARD:
+                # Unmark the stone 
                 self.board[square] &= 3
 
-    def clear_block(self):
-        for captured in self.blocks: 
+    def reset_best_attr(self):
+        self.best_move = None
+        self.best_liberties = self.BOARD_SIZE * self.BOARD_SIZE
+
+    def clear_group(self, group):
+        for captured in group: 
             self.board[captured] = self.EMPTY
 
 
@@ -184,57 +188,81 @@ def check_input(input_string, board_size):
         print(msg)
     return outstate
 
-
 def move2square(move, board_range):
     return (1 + int(move[1:])) * -board_range + ord(move[0]) % 97 + 1
 
-
-def place_stone(square, player_turn, board):
-    # Check if square is occupied before placing the stone
-    if board.place_stone(square, player_turn):  
-        #board.count(square, player_turn) # DEBUG MODE
-        #print("Number of liberties: ", len(board.liberties))
-        return 1
-    return 0
-
+def square2move(square, board_range):
+    col = chr(97 + (square%board_range - 1))
+    row = str(board_range - 1 - square//board_range)
+    return col + row
 
 def weffect(board):
     for square in range(board.BOARD_RANGE * board.BOARD_RANGE):
         if board.board[square] == board.BLACK:
-            board.count(square, board.BLACK)
-            if not board.liberties:
-                board.clear_block()
+            group, liberties = board.count(square, board.BLACK)
+            board.restore() # BUG: rimuovere o correggere restore
+            print("Black blocks: ", [square2move(stone, board.BOARD_RANGE) for stone in group])
+            print("Black liberties: ", len(liberties))
+            if len(liberties) == 0:
+                board.clear_group(group)
             else:
                 # choose a liberty not on edge line
                 off_edge_liberties = []
-                print("Blocks: ", board.blocks)
-                print("Board liberties: ", len(board.liberties))
-                for liberty in board.liberties:
+                for liberty in liberties:
                     if all(board.board[liberty + offset] != board.OFFBOARD for offset in [-board.BOARD_RANGE, 1, board.BOARD_RANGE, -1]):
                         off_edge_liberties.append(liberty)
-                print("Off edge liberties: ", len(off_edge_liberties))
-                if off_edge_liberties:
+                if len(off_edge_liberties) >= 1:
                     random_liberty = choice(off_edge_liberties)
                     # if the group has 1 or 2 liberties
-                    if len(board.liberties) < 3:
-                        eval_liberty(random_liberty, board) 
+                    if len(liberties) < 3:
+                        eval_liberty(random_liberty, liberties, board) 
 
-def eval_liberty(square, board):
-    if len(board.liberties) <= board.best_liberties and lookahead(square, board) >= 2:
+def beffect(board):
+    cur_liberties = set()
+    for square in range(board.BOARD_RANGE * board.BOARD_RANGE):
+        if board.board[square] == board.WHITE:
+            group, liberties = board.count(square, board.WHITE)
+            board.restore()
+            cur_liberties = cur_liberties.union(liberties)
+            print("White blocks: ", [square2move(stone, board.BOARD_RANGE) for stone in group])
+            print("White liberties: ", len(liberties))
+            if len(liberties) == 1:
+                board.best_move = next(iter(liberties))
+                board.clear_group(group)
+                board.best_liberties = lookahead(board.best_move, board)
+                return
+            elif len(liberties) >= 2:
+                random_liberty = choice(list(liberties))
+                eval_liberty(random_liberty, liberties, board)
+    # DEBUG
+    """
+    if board.best_move is None:
+        print("Mossa casuale")
+        board.best_move = choice(list(cur_liberties))
+    """
+
+def eval_liberty(square, liberties, board):
+    # Lookahead previene mosse suicide
+    if len(liberties) <= board.best_liberties and lookahead(square, board) >= 2:
         board.best_move = square
-        board.best_liberties = len(board.liberties)
+        board.best_liberties = len(liberties)
 
 def lookahead(square, board):
-    place_stone(square, board.BLACK, board)
-    board.count(square, board.BLACK)
+    board.place_stone(square, board.BLACK)
+    _, liberties = board.count(square, board.BLACK)
     board.remove_stone(square)
-    return len(board.liberties)
-
+    board.restore()
+    return len(liberties)
 
 def place_handicap_stones(board):
-    for _ in range(ceil(sqrt(board.BOARD_SIZE))):
+    num_placed_stones = 0
+    while num_placed_stones < ceil(sqrt(board.BOARD_SIZE)):
         square = (1 + randrange(1, board.BOARD_SIZE+1)) * -board.BOARD_RANGE + randrange(1, board.BOARD_SIZE+1)
-        place_stone(square, board.BLACK, board)
+        if not board.board[square] & 7:
+            board.place_stone(square, board.BLACK)
+            num_placed_stones += 1
+        else:
+            continue
 
 
 def main():
@@ -252,37 +280,47 @@ def main():
             print("Invalid board size!")
 
     # Place handicap stones (randomly)
-    #place_handicap_stones(board)
-    #player_turn = board.WHITE
-    player_turn = board.BLACK # DEBUG
+    place_handicap_stones(board)
+    #board.place_stone(move2square('b2', board.BOARD_RANGE), board.BLACK)
+    #board.place_stone(move2square('c1', board.BOARD_RANGE), board.BLACK)
+    #board.place_stone(move2square('b1', board.BOARD_RANGE), board.WHITE)
 
+    # Main loop
     while True:
         # Display the board
         board.render()
-        # Check move
-        if player_turn == board.WHITE: # DEBUG
-            sleep(0.1)
-            move = chr(97 + randrange(board.BOARD_SIZE)) + str(randrange(1, board.BOARD_SIZE+1))
-            print("Wally's move: ", move)
-        else:
-            move = input('Your move: ')
-            # Check if the input is a valid command or a valid stone coordinate
-            if move == 'quit': 
-                print("Quitting game...")
-                exit()
-            elif move == 'reset':
-                board.reset()
-                place_handicap_stones(board)
-                continue
-            # Check if move is valid
-            elif not check_input(move, board_size):
-                continue
-
-        square = move2square(move, board.BOARD_RANGE)
-        if place_stone(square, player_turn, board):
-            weffect(board)
-            board.restore()
-            player_turn = player_turn#3 - player_turn # DEBUG
+        # Check move from white
+        move = input('Your move: ')
+        # Check if the input is a valid command or a valid stone coordinate
+        if move == 'quit': 
+            print("Quitting game...")
+            exit()
+        elif move == 'reset':
+            board.reset()
+            place_handicap_stones(board)
+        # Check if move is valid
+        elif check_input(move, board_size):
+            # Conversione necessaria perchè rappresento la board come un unico array.
+            # In futuro potrei usare una rappresentazione tramite array di array.
+            square = move2square(move, board.BOARD_RANGE)
+            if board.board[square] & 7:
+                print("Square already occupied.")
+            else:
+                board.place_stone(square, board.WHITE)
+                weffect(board)
+                board.render()
+                beffect(board)
+                print("Black move: ", square2move(board.best_move, board.BOARD_RANGE))
+                board.place_stone(board.best_move, board.BLACK)
+                board.reset_best_attr()
 
 if __name__ == "__main__":
     main()
+
+# TODO:
+# 1) Wally non distingue due gruppi bianchi con 1 libertà rimanente. Cattura il primo che viene trovato
+#    e non il più grande.
+# 2) Quando un gruppo nero all'angolo ha una sola libertà, Wally tenta comunque di estendere inutilmente.
+# 3) Le mosse suicide sono ancora permesse
+# 4) Non sembra salvare gruppi con una sola libertà salvabili
+# 5) ko non presente
