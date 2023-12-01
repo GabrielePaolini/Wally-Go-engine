@@ -51,6 +51,7 @@ BOARDS = {
 }
 """
 
+
 class Board:
     def __init__(self, board_size, margin=2):
         # Stones
@@ -61,7 +62,7 @@ class Board:
         self.OFFBOARD = 7
         self.LIBERTY = 8
         # ASCII representation of stones
-        self.pieces = '.#o  bw +' 
+        self.pieces = '.#o  bw +'
 
         # Board size data
         self.BOARD_SIZE = board_size
@@ -77,9 +78,11 @@ class Board:
         # Create the top and bottom rows (full of 7s)
         top_bottom_row = [self.OFFBOARD] * self.BOARD_RANGE
         # Create the middle rows (7s on the sides, 0s in the middle)
-        middle_row = [self.OFFBOARD] + [self.EMPTY] * self.BOARD_SIZE + [self.OFFBOARD]
+        middle_row = [self.OFFBOARD] + [self.EMPTY] * \
+            self.BOARD_SIZE + [self.OFFBOARD]
         # Create the full board
-        board = [top_bottom_row] + [middle_row for _ in range(self.BOARD_SIZE)] + [top_bottom_row]
+        board = [top_bottom_row] + \
+            [middle_row for _ in range(self.BOARD_SIZE)] + [top_bottom_row]
         # Flatten the board to a single list
         flat_board = [item for sublist in board for item in sublist]
         return flat_board
@@ -87,15 +90,18 @@ class Board:
     # RENDER SQUARE BOARD ON CONSOLE
     def render(self):
         # File markers
-        files = [chr(ascii_code) for ascii_code in range(97, 97 + self.BOARD_SIZE)]
+        files = [chr(ascii_code)
+                     for ascii_code in range(97, 97 + self.BOARD_SIZE)]
 
-        print('\n' + '    ' + ' '.join(files), end='') # first row of column coords
+        # first row of column coords
+        print('\n' + '    ' + ' '.join(files), end='')
         for row in range(self.BOARD_RANGE):
             for col in range(self.BOARD_RANGE):
                 if row > 0 and row < self.BOARD_RANGE - 1:
                     if col == 0:
                         cur_row = self.BOARD_RANGE - 1 - row
-                        print('' + str(cur_row) if cur_row>=10 else ' ' + str(cur_row), end='')
+                        print('' + str(cur_row) if cur_row >=
+                              10 else ' ' + str(cur_row), end='')
                     elif col == self.BOARD_RANGE - 1:
                         cur_row = self.BOARD_RANGE - 1 - row
                         print(' ' + str(cur_row), end='')
@@ -104,26 +110,26 @@ class Board:
                 stone = self.board[square]
                 print(self.pieces[stone] + ' ', end='')
             print()
-        print('    ' + ' '.join(files) + '\n') # last row of column coords
-    
+        print('    ' + ' '.join(files) + '\n')  # last row of column coords
+
     def reset(self):
-        self.board = self.create() 
+        self.board = self.create()
         self.best_liberties = self.BOARD_SIZE * self.BOARD_SIZE
         self.best_move = None
 
     def place_stone(self, square, color):
         self.board[square] = color
-        
+
     def remove_stone(self, square):
         self.board[square] &= 8
-        
+
     # count liberties, save stone group coords (COUNT sub on byte magazine 1981)
     def count(self, square, color):
         group = set()
         liberties = set()
         piece = self.board[square]
         if piece != self.OFFBOARD:
-            # If there's a stone at square (i.e. square is not empty (0) 
+            # If there's a stone at square (i.e. square is not empty (0)
             # AND has the same color as input AND is not marked)
             if (piece & 3) and (piece & color) and (piece & self.MARKER) == 0:
                 # save stone's coordinate
@@ -133,7 +139,8 @@ class Board:
                 self.board[square] |= self.MARKER
                 # look for neighbours recursively
                 for delta in [-self.BOARD_RANGE, 1, self.BOARD_RANGE, -1]:
-                    next_group, next_liberties = self.count(square + delta, color)
+                    next_group, next_liberties = self.count(
+                        square + delta, color)
                     group = group.union(next_group)
                     liberties = liberties.union(next_liberties)
             # if the square is empty
@@ -150,7 +157,7 @@ class Board:
         for square in range(self.BOARD_RANGE * self.BOARD_RANGE):
             # restore piece if the square is on board
             if self.board[square] != self.OFFBOARD:
-                # Unmark the stone 
+                # Unmark the stone
                 self.board[square] &= 3
 
     def reset_best_attr(self):
@@ -158,7 +165,7 @@ class Board:
         self.best_liberties = self.BOARD_SIZE * self.BOARD_SIZE
 
     def clear_group(self, group):
-        for captured in group: 
+        for captured in group:
             self.board[captured] = self.EMPTY
 
 
@@ -174,38 +181,44 @@ def check_input(input_string, board_size):
         if last_char < 'a' or last_char > 'z':
             msg = "Invalid last character. Must be between 'a' and 'z'."
         elif column < 'a' or column > last_char:
-            msg = "Invalid column input, it must be between 'a' and '{}'".format(last_char)
+            msg = "Invalid column input, it must be between 'a' and '{}'".format(
+                last_char)
         else:
             if input_string[1:].isdigit():
                 row = int(input_string[1:])
                 if row < 1 or row > board_size:
-                    msg = "Invalid row, it must be between 1 and {}".format(board_size)
+                    msg = "Invalid row, it must be between 1 and {}".format(
+                        board_size)
                 else:
-                    outstate = 1 # Tutto ok
+                    outstate = 1  # Tutto ok
             else:
                 msg = "Invalid row."
     if not outstate:
         print(msg)
     return outstate
 
+
 def move2square(move, board_range):
     return (1 + int(move[1:])) * -board_range + ord(move[0]) % 97 + 1
 
+
 def square2move(square, board_range):
-    col = chr(97 + (square%board_range - 1))
+    col = chr(97 + (square % board_range - 1))
     row = str(board_range - 1 - square//board_range)
     return col + row
+
 
 def weffect(board):
     for square in range(board.BOARD_RANGE * board.BOARD_RANGE):
         if board.board[square] == board.BLACK:
             group, liberties = board.count(square, board.BLACK)
-            board.restore() # BUG: rimuovere o correggere restore
-            current_block = [square2move(stone, board.BOARD_RANGE) for stone in group])
+            board.restore()  # BUG: rimuovere o correggere restore
+            current_block = [square2move(
+                stone, board.BOARD_RANGE) for stone in group]
             print("Black blocks: ", current_block)
             print("Black liberties: ", len(liberties))
             if len(liberties) == 0:
-		print("Gruppo nero senza libertà: {}".format(current_block))
+                print("Gruppo nero senza libertà: {}".format(current_block))
                 board.clear_group(group)
             else:
                 # choose a liberty not on edge line
@@ -213,7 +226,7 @@ def weffect(board):
                 for liberty in liberties:
                     if all(board.board[liberty + offset] != board.OFFBOARD for offset in [-board.BOARD_RANGE, 1, board.BOARD_RANGE, -1]):
                         off_edge_liberties.append(liberty)
-		print("Off edge liberties: ", off_edge_liberties)
+                print("Off edge liberties: ", off_edge_liberties)
                 if len(off_edge_liberties) >= 1:
                     random_liberty = choice(off_edge_liberties)
                     # if the group has 1 or 2 liberties
@@ -221,19 +234,18 @@ def weffect(board):
                         eval_liberty(random_liberty, liberties, board) 
 
 def beffect(board):
-    cur_liberties = set()
     for square in range(board.BOARD_RANGE * board.BOARD_RANGE):
         if board.board[square] == board.WHITE:
             group, liberties = board.count(square, board.WHITE)
             board.restore()
-            cur_liberties = cur_liberties.union(liberties)
             print("White blocks: ", [square2move(stone, board.BOARD_RANGE) for stone in group])
             print("White liberties: ", len(liberties))
             if len(liberties) == 1:
-                board.best_move = next(iter(liberties))
+                cur_move = next(iter(liberties))   
+                board.best_move = cur_move
                 board.clear_group(group)
                 board.best_liberties = lookahead(board.best_move, board)
-                return
+                #return
             elif len(liberties) >= 2:
                 random_liberty = choice(list(liberties))
                 eval_liberty(random_liberty, liberties, board)
@@ -256,6 +268,11 @@ def lookahead(square, board):
     board.remove_stone(square)
     board.restore()
     return len(liberties)
+
+#def pats(board):
+#    for square in range(board.BOARD_RANGE * board.BOARD_RANGE):
+#        if board.board[square] == board.WHITE:
+            
 
 def place_handicap_stones(board):
     num_placed_stones = 0
@@ -284,6 +301,7 @@ def main():
 
     # Place handicap stones (randomly)
     #place_handicap_stones(board)
+    """
     board.place_stone(move2square('b5', board.BOARD_RANGE), board.BLACK)
     board.place_stone(move2square('c5', board.BOARD_RANGE), board.BLACK)
     board.place_stone(move2square('a4', board.BOARD_RANGE), board.BLACK)
@@ -298,7 +316,17 @@ def main():
     board.place_stone(move2square('c3', board.BOARD_RANGE), board.WHITE)
     board.place_stone(move2square('d3', board.BOARD_RANGE), board.WHITE)
     board.place_stone(move2square('d2', board.BOARD_RANGE), board.WHITE)
-    #board.place_stone(move2square('e2', board.BOARD_RANGE), board.WHITE)
+    """
+    
+    #board.place_stone(move2square('b4', board.BOARD_RANGE), board.WHITE)
+    board.place_stone(move2square('a4', board.BOARD_RANGE), board.WHITE)
+    board.place_stone(move2square('d1', board.BOARD_RANGE), board.WHITE)
+    board.place_stone(move2square('e1', board.BOARD_RANGE), board.WHITE)
+
+    board.place_stone(move2square('a3', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('b4', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('c5', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('e2', board.BOARD_RANGE), board.BLACK)
 
     # Main loop
     while True:
