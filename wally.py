@@ -201,9 +201,11 @@ def weffect(board):
         if board.board[square] == board.BLACK:
             group, liberties = board.count(square, board.BLACK)
             board.restore() # BUG: rimuovere o correggere restore
-            print("Black blocks: ", [square2move(stone, board.BOARD_RANGE) for stone in group])
+            current_block = [square2move(stone, board.BOARD_RANGE) for stone in group])
+            print("Black blocks: ", current_block)
             print("Black liberties: ", len(liberties))
             if len(liberties) == 0:
+		print("Gruppo nero senza libertà: {}".format(current_block))
                 board.clear_group(group)
             else:
                 # choose a liberty not on edge line
@@ -211,6 +213,7 @@ def weffect(board):
                 for liberty in liberties:
                     if all(board.board[liberty + offset] != board.OFFBOARD for offset in [-board.BOARD_RANGE, 1, board.BOARD_RANGE, -1]):
                         off_edge_liberties.append(liberty)
+		print("Off edge liberties: ", off_edge_liberties)
                 if len(off_edge_liberties) >= 1:
                     random_liberty = choice(off_edge_liberties)
                     # if the group has 1 or 2 liberties
@@ -280,10 +283,22 @@ def main():
             print("Invalid board size!")
 
     # Place handicap stones (randomly)
-    place_handicap_stones(board)
-    #board.place_stone(move2square('b2', board.BOARD_RANGE), board.BLACK)
-    #board.place_stone(move2square('c1', board.BOARD_RANGE), board.BLACK)
-    #board.place_stone(move2square('b1', board.BOARD_RANGE), board.WHITE)
+    #place_handicap_stones(board)
+    board.place_stone(move2square('b5', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('c5', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('a4', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('d4', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('b3', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('b2', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('c2', board.BOARD_RANGE), board.BLACK)
+    board.place_stone(move2square('d1', board.BOARD_RANGE), board.BLACK)
+
+    board.place_stone(move2square('b4', board.BOARD_RANGE), board.WHITE)
+    board.place_stone(move2square('c4', board.BOARD_RANGE), board.WHITE)
+    board.place_stone(move2square('c3', board.BOARD_RANGE), board.WHITE)
+    board.place_stone(move2square('d3', board.BOARD_RANGE), board.WHITE)
+    board.place_stone(move2square('d2', board.BOARD_RANGE), board.WHITE)
+    #board.place_stone(move2square('e2', board.BOARD_RANGE), board.WHITE)
 
     # Main loop
     while True:
