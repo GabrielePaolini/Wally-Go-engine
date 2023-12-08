@@ -73,6 +73,8 @@ class Board:
         # Count routine variables
         self.best_liberties = board_size * board_size
         self.best_move = None
+        self.white_atari_move = []
+        self.white_atari_liberties = []
 
     def create(self):
         # Create the top and bottom rows (full of 7s)
@@ -241,14 +243,31 @@ def beffect(board):
             print("White blocks: ", [square2move(stone, board.BOARD_RANGE) for stone in group])
             print("White liberties: ", len(liberties))
             if len(liberties) == 1:
-                cur_move = next(iter(liberties))   
-                board.best_move = cur_move
-                board.clear_group(group)
+                board.best_move = next(iter(liberties))   
+                #board.clear_group(group)
+                # Appendo la mossa e libertà corrente per un 
+                # confronto successivo con altri gruppi bianchi
+                # in atari
+                board.white_atari_move.append(board.best_move)                
                 board.best_liberties = lookahead(board.best_move, board)
+                board.white_atari_liberties.append(board.best_liberties)
+                # Per evitare bug in cui più gruppi bianchi con una sola
+                # libertà venissero cattuarati da mosse diverse e/o
+                # venissero catturati per poi far piazzare una black stone
+                # da un altra parte, esco dalla funzione non appena trovo
+                # un gruppo bianco in pericolo
                 #return
+                
             elif len(liberties) >= 2:
                 random_liberty = choice(list(liberties))
                 eval_liberty(random_liberty, liberties, board)
+    # Confronto atari
+    if board.best_atari_move:
+        best_liberty = max(board.white_atari_liberties)
+        best_liberty_idx = board.white_atari_liberties.index(best_liberty)
+        board.best_liberties = best_liberty
+        board.best_move = board.white_atari_move[best_liberty_idx]
+        
     # DEBUG
     """
     if board.best_move is None:
